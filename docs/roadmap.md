@@ -40,7 +40,9 @@ base limpia antes de continuar con funcionalidades de negocio.
 * [x] Verificar la instalación contra una base aislada.
 * [x] Crear documentación técnica inicial.
 * [x] Completar un README de instalación.
+* [x] Publicar el proyecto bajo licencia MIT.
 * [x] Inicializar el repositorio Git en la rama `main`.
+* [x] Vincular el repositorio remoto y publicar `main` en GitHub.
 
 ### Resultado esperado
 
