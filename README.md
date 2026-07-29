@@ -133,3 +133,9 @@ Documentación relacionada:
 El archivo `.env`, las sesiones, logs, uploads, dependencias y cachés están
 excluidos del repositorio. `.env.example` contiene únicamente nombres y valores
 de referencia; la contraseña administrativa debe definirse localmente.
+
+## Licencia
+
+Este proyecto se distribuye bajo la [licencia MIT](LICENSE).
+
+Copyright © 2026 Rogelio Sanchez.

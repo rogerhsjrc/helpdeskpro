@@ -54,3 +54,12 @@ El esquema contiene sólo estructura. Los catálogos y el administrador se crean
 mediante seeds idempotentes, mientras que los datos demostrativos son optativos.
 
 Esto evita mezclar instalación, credenciales y contenido de muestra.
+
+## 9. Licencia MIT
+
+El proyecto se publica bajo licencia MIT para permitir que su código sea
+consultado, utilizado y adaptado, siempre que se conserve el aviso de copyright
+y la licencia original.
+
+Esta decisión favorece su finalidad educativa y de portfolio sin imponer
+restricciones copyleft a quienes estudien o reutilicen partes del proyecto.
