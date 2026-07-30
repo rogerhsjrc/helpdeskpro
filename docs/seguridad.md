@@ -17,18 +17,32 @@
 * Hashes generados mediante `password_hash`.
 * Cookies de sesión `HttpOnly` y `SameSite=Lax`.
 * Cookie `Secure` cuando el entorno productivo utiliza HTTPS.
+* Sesiones configuradas en modo estricto y limitadas al uso de cookies.
+* Token CSRF aleatorio asociado a la sesión y comparación mediante
+  `hash_equals`.
+* Middleware reutilizable para rechazar solicitudes modificadoras sin un token
+  CSRF válido.
+* Búsqueda de autenticación limitada a usuarios activos.
+* Respuesta de credenciales independiente de si el usuario existe o está
+  inactivo.
+* Verificación ficticia de contraseña para reducir diferencias temporales
+  cuando el correo no corresponde a un usuario activo.
 * Escape de vistas mediante `View::escape`.
 * Directorios internos fuera del acceso web.
 * Respuestas de error diferenciadas según `APP_DEBUG`.
 
 ## 3. Controles obligatorios para autenticación
 
-* Verificar contraseñas mediante `password_verify`.
-* Rechazar usuarios inactivos.
-* Regenerar el ID de sesión después del login.
-* Guardar en sesión solamente identidad y rol.
-* Invalidar la sesión durante logout.
-* Proteger rutas con middleware de autenticación e invitados.
+La fase de autenticación incorpora:
+
+* Verificación de contraseñas mediante `password_verify`.
+* Rechazo de usuarios inactivos.
+* Regeneración del ID de sesión después del login.
+* Almacenamiento exclusivo de identidad y rol en sesión.
+* Renovación del token CSRF después del login.
+* Invalidación de datos, cookie y sesión durante logout.
+* Protección de rutas con middleware de autenticación e invitados.
+* Logout disponible únicamente mediante una solicitud `POST` protegida.
 
 ## 4. CSRF
 

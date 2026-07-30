@@ -198,6 +198,11 @@ Adjunto
 
 Los modelos administran el acceso a datos relacionado con su entidad.
 
+`App\Models\Usuario` consulta usuarios activos mediante sentencias preparadas y
+actualiza su último acceso. Puede recibir una conexión PDO controlada para
+pruebas; en el flujo normal obtiene la conexión compartida exclusivamente desde
+`App\Core\Database`.
+
 ### Servicios
 
 Ejemplos potenciales:
@@ -210,6 +215,10 @@ AuditService
 ```
 
 Los servicios se crearán únicamente cuando exista lógica de negocio suficiente.
+
+`AuthService` normaliza y valida el correo, verifica la contraseña y coordina el
+registro del último acceso. Devuelve únicamente los datos mínimos permitidos
+para la sesión.
 
 Ejemplo: crear un ticket, registrar un adjunto y generar un evento de historial dentro de una transacción puede pertenecer a `TicketService`.
 
@@ -262,13 +271,20 @@ La sesión debe inicializarse una sola vez durante el arranque de la aplicación
 
 La información del usuario autenticado debe mantenerse reducida.
 
-Las operaciones comunes de sesión podrán encapsularse posteriormente en una clase como:
+Las operaciones comunes se encapsulan en:
 
 ```text
 app/Core/Session.php
 ```
 
-No es obligatorio crearla antes de que exista una necesidad concreta.
+`Session` administra la identidad mínima autenticada, los mensajes flash y el
+token CSRF. La clase no reemplaza el almacenamiento nativo de PHP ni incorpora
+un sistema de sesiones propio. Después del login regenera el identificador y el
+token CSRF; durante el logout elimina los datos, la cookie y la sesión activa.
+
+Las rutas de autenticación utilizan `GuestMiddleware`, mientras que el
+dashboard y el logout utilizan `AuthMiddleware`. Los formularios `POST` pasan
+además por `CsrfMiddleware`.
 
 ---
 

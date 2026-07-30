@@ -20,6 +20,10 @@ Completado:
 * Front Controller y reescritura de URLs configurados.
 * Página inicial, respuesta 404 y respuesta 405.
 * Suite PHPUnit para el núcleo HTTP y las rutas web.
+* Autenticación mediante sesiones y credenciales almacenadas de forma segura.
+* Login y logout protegidos con CSRF.
+* Middleware para rutas de invitados y usuarios autenticados.
+* Dashboard provisional protegido.
 
 ---
 
@@ -104,23 +108,69 @@ Permitir el acceso seguro de usuarios registrados.
 
 ### Tareas
 
-* [ ] Crear `Usuario` o `UsuarioModel`.
-* [ ] Buscar usuario por email.
-* [ ] Crear formulario de login.
-* [ ] Validar credenciales.
-* [ ] Utilizar `password_verify`.
-* [ ] Regenerar el ID de sesión.
-* [ ] Registrar `ultimo_acceso_at`.
-* [ ] Crear logout.
-* [ ] Crear `AuthMiddleware`.
-* [ ] Crear `GuestMiddleware`.
-* [ ] Proteger rutas privadas.
-* [ ] Crear manejo de mensajes flash.
-* [ ] Incorporar protección CSRF.
+* [x] Crear `Usuario` o `UsuarioModel`.
+* [x] Buscar usuario por email.
+* [x] Crear formulario de login.
+* [x] Validar credenciales.
+* [x] Utilizar `password_verify`.
+* [x] Regenerar el ID de sesión.
+* [x] Registrar `ultimo_acceso_at`.
+* [x] Crear logout.
+* [x] Crear `AuthMiddleware`.
+* [x] Crear `GuestMiddleware`.
+* [x] Proteger rutas privadas.
+* [x] Crear manejo de mensajes flash.
+* [x] Incorporar protección CSRF.
 
 ### Resultado esperado
 
 El administrador inicial puede iniciar sesión y acceder a un dashboard protegido.
+
+### Cortes de implementación
+
+1. [x] Encapsular sesión, mensajes flash y protección CSRF.
+2. [x] Implementar el acceso a usuarios y la validación de credenciales.
+3. [x] Incorporar controladores, vistas, rutas y middleware de autenticación.
+
+### Decisiones de alcance
+
+* El login sólo exige que `usuarios.activo = 1`; el estado del rol no bloquea
+  la autenticación.
+* La opción para mantener la sesión iniciada no forma parte de esta fase.
+* El dashboard de esta fase será una página protegida provisional, sin los
+  indicadores definidos para la Fase 9.
+
+### Rutas incorporadas
+
+| Método | Ruta | Acceso |
+|---|---|---|
+| `GET` | `/login` | Invitado |
+| `POST` | `/login` | Invitado con token CSRF |
+| `GET` | `/dashboard` | Usuario autenticado |
+| `POST` | `/logout` | Usuario autenticado con token CSRF |
+
+### Verificación automatizada
+
+* Login válido con regeneración del identificador de sesión y del token CSRF.
+* Mensaje genérico para credenciales inválidas.
+* Rechazo de usuarios inexistentes o inactivos.
+* Actualización de `ultimo_acceso_at` sólo con credenciales válidas.
+* Redirecciones para invitados y usuarios autenticados.
+* Protección CSRF de login y logout.
+* Destrucción completa de una sesión activa durante logout.
+* Dashboard provisional accesible únicamente con una identidad válida.
+* Suite completa con 67 pruebas y 192 aserciones.
+
+### Verificación manual realizada
+
+* El formulario de login genera un token CSRF válido.
+* El administrador inicial puede iniciar sesión con las credenciales del
+  entorno.
+* El login registra `ultimo_acceso_at` y permite acceder al dashboard
+  protegido.
+* El logout mediante `POST` y CSRF destruye la sesión y regresa al formulario.
+* Después del logout, intentar acceder al dashboard redirige nuevamente al
+  login.
 
 ---
 
@@ -346,6 +396,7 @@ Estas funcionalidades podrán evaluarse después de terminar la primera versión
 * Versión Laravel.
 * Versión Symfony.
 * Recuperación de contraseña mediante correo.
+* Opción para mantener la sesión iniciada (`recordarme`).
 * Notificaciones por correo.
 * Acuerdos de nivel de servicio.
 * Etiquetas.

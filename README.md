@@ -9,8 +9,8 @@ testing automatizado y documentación técnica sin depender de un framework PHP.
 
 ## Estado
 
-El baseline reproducible y el núcleo HTTP están completos. El próximo hito es
-la autenticación.
+El baseline reproducible, el núcleo HTTP y la autenticación están completos.
+El próximo hito es la gestión de categorías, prioridades y estados de ticket.
 
 Actualmente el proyecto incluye:
 
@@ -19,6 +19,10 @@ Actualmente el proyecto incluye:
 * `Request`, `Response` y Router con parámetros y middleware.
 * Controladores y vistas con layouts.
 * Respuestas 404 y 405.
+* Login y logout mediante sesiones.
+* Protección CSRF en formularios de autenticación.
+* Middleware para rutas públicas y privadas.
+* Dashboard provisional protegido.
 * Esquema relacional reproducible.
 * Seeds idempotentes y datos demo optativos.
 * Suite PHPUnit.
