@@ -19,6 +19,10 @@ use App\Core\View;
 <p>Rol: <?= View::escape($usuario['rol']) ?></p>
 <p>Los indicadores del dashboard se incorporarán en la Fase 9.</p>
 
+<?php if ($usuario['rol'] === 'Administrador'): ?>
+    <p><a href="/admin/configuraciones">Administrar configuraciones</a></p>
+<?php endif; ?>
+
 <form method="post" action="/logout">
     <input
         type="hidden"

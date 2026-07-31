@@ -22,6 +22,8 @@
   `hash_equals`.
 * Middleware reutilizable para rechazar solicitudes modificadoras sin un token
   CSRF válido.
+* Middleware de roles con permisos explícitos y respuesta 403 para identidades
+  autenticadas no autorizadas.
 * Búsqueda de autenticación limitada a usuarios activos.
 * Respuesta de credenciales independiente de si el usuario existe o está
   inactivo.
@@ -59,6 +61,32 @@ Ocultar controles en la vista no constituye autorización.
 Cada controlador, middleware o servicio deberá confirmar que el usuario puede
 operar sobre el recurso solicitado. Los clientes sólo accederán a sus tickets y
 las notas internas serán exclusivas del personal autorizado.
+
+Las rutas administrativas deben combinar `AuthMiddleware` y `RoleMiddleware`.
+El primero exige una identidad válida y el segundo utiliza el nombre de rol
+conservado en sesión para decidir si la petición puede alcanzar el controlador.
+Las comprobaciones visuales son únicamente de presentación y no sustituyen este
+pipeline.
+
+La administración de categorías, prioridades y estados de ticket aplica este
+pipeline en todas sus rutas. Sus acciones de alta, edición y cambio de estado
+aceptan únicamente `POST`, agregan `CsrfMiddleware`, validan los datos
+nuevamente en el servidor y utilizan sentencias preparadas. La desactivación es
+lógica y no elimina registros ni relaciones existentes.
+
+Las prioridades aceptan un nivel entero dentro del rango representable por el
+esquema y colores opcionales exclusivamente en formato hexadecimal `#RRGGBB`.
+El formato se valida antes de persistir y los valores se escapan nuevamente al
+mostrarlos.
+
+Los estados de ticket validan el orden numérico y aceptan `es_final` únicamente
+como un booleano explícito. Un valor manipulado, incluida una estructura en
+lugar de texto, se rechaza antes de consultar o modificar la base.
+
+La página `/admin/configuraciones` sólo centraliza la navegación. Tanto esa ruta
+como cada ruta de los catálogos conserva su propia combinación de
+`AuthMiddleware` y `RoleMiddleware`, por lo que acceder directamente a una URL
+interna no evita la autorización.
 
 ## 6. Adjuntos
 

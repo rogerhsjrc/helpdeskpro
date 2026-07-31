@@ -23,6 +23,11 @@ Completado:
 * Autenticación mediante sesiones y credenciales almacenadas de forma segura.
 * Login y logout protegidos con CSRF.
 * Middleware para rutas de invitados y usuarios autenticados.
+* Middleware de autorización por rol con respuesta 403.
+* Administración de categorías con alta, edición y estado lógico.
+* Administración de prioridades con nivel, color y estado lógico.
+* Administración de estados de ticket con orden e indicador final.
+* Navegación administrativa central para las tablas maestras.
 * Dashboard provisional protegido.
 
 ---
@@ -182,20 +187,167 @@ Gestionar las configuraciones básicas utilizadas por los tickets.
 
 ### Entidades
 
-* [ ] Categorías.
-* [ ] Prioridades.
-* [ ] Estados de ticket.
+* [x] Categorías.
+* [x] Prioridades.
+* [x] Estados de ticket.
 
 ### Tareas
 
-* [ ] Confirmar esquema.
-* [ ] Crear seeds.
-* [ ] Crear modelos.
-* [ ] Crear listados.
-* [ ] Crear formularios.
-* [ ] Validar nombres únicos.
-* [ ] Implementar activación y desactivación.
-* [ ] Restringir acceso a administradores.
+* [x] Confirmar esquema.
+* [x] Crear seeds.
+* [x] Crear modelos.
+* [x] Crear listados.
+* [x] Crear formularios.
+* [x] Validar nombres únicos.
+* [x] Implementar activación y desactivación.
+* [x] Restringir acceso a administradores.
+
+### Cortes de implementación
+
+1. [x] Incorporar autorización administrativa mediante `RoleMiddleware` y
+   respuesta 403.
+2. [x] Implementar la administración completa de categorías como flujo de
+   referencia.
+3. [x] Implementar la administración de prioridades.
+4. [x] Implementar la administración de estados de ticket.
+5. [x] Integrar la navegación, completar la documentación y verificar
+   manualmente el módulo.
+
+### Verificación del corte 1
+
+* El middleware admite una lista explícita de roles permitidos.
+* El administrador puede continuar hacia el recurso protegido.
+* Técnicos y clientes reciben una vista 403 sin ejecutar el controlador.
+* Los invitados se redirigen al login.
+* El pipeline previsto para las rutas administrativas combina autenticación y
+  autorización antes del controlador.
+
+### Rutas incorporadas en el corte 2
+
+| Método | Ruta | Responsabilidad |
+|---|---|---|
+| `GET` | `/admin/categorias` | Listar categorías activas e inactivas |
+| `GET` | `/admin/categorias/crear` | Mostrar el formulario de alta |
+| `POST` | `/admin/categorias` | Validar y crear una categoría |
+| `GET` | `/admin/categorias/{id}/editar` | Mostrar el formulario de edición |
+| `POST` | `/admin/categorias/{id}/actualizar` | Validar y actualizar una categoría |
+| `POST` | `/admin/categorias/{id}/estado` | Activar o desactivar sin eliminar |
+
+### Decisiones del corte 2
+
+* El esquema y los seeds existentes ya cubren las categorías y no requirieron
+  cambios.
+* No se elimina físicamente ninguna categoría.
+* El nombre se valida como obligatorio, con un máximo de 80 caracteres y
+  unicidad respaldada por la base de datos.
+* La descripción es opcional y admite hasta 255 caracteres.
+* La validación se mantiene en `CategoriaController` y la persistencia en
+  `Categoria`; no se incorpora un servicio para una operación de una sola
+  entidad.
+* Todas las mutaciones usan `POST`, CSRF, autorización administrativa y el
+  patrón Post/Redirect/Get después de completarse correctamente.
+
+### Verificación del corte 2
+
+* Listado con categorías activas e inactivas y salida dinámica escapada.
+* Alta y edición con normalización, límites de longitud y nombre único.
+* Descripción vacía persistida como `NULL`.
+* Activación y desactivación lógica sin sentencias de eliminación.
+* Respuestas 404 para identificadores inválidos o inexistentes.
+* Rechazo de valores de estado manipulados.
+* Acceso exclusivo del administrador y protección CSRF en todas las mutaciones.
+* Suite completa con 98 pruebas y 291 aserciones.
+* Lectura manual de los cinco registros existentes y renderizado del listado
+  con estado HTTP 200, sin modificar la base de desarrollo.
+
+### Rutas incorporadas en el corte 3
+
+| Método | Ruta | Responsabilidad |
+|---|---|---|
+| `GET` | `/admin/prioridades` | Listar prioridades ordenadas por nivel |
+| `GET` | `/admin/prioridades/crear` | Mostrar el formulario de alta |
+| `POST` | `/admin/prioridades` | Validar y crear una prioridad |
+| `GET` | `/admin/prioridades/{id}/editar` | Mostrar el formulario de edición |
+| `POST` | `/admin/prioridades/{id}/actualizar` | Validar y actualizar una prioridad |
+| `POST` | `/admin/prioridades/{id}/estado` | Activar o desactivar sin eliminar |
+
+### Decisiones del corte 3
+
+* El nivel es obligatorio, único y debe ser un entero entre 1 y 255, de acuerdo
+  con el tipo `TINYINT UNSIGNED` del esquema.
+* El color es opcional; cuando existe debe usar el formato hexadecimal
+  `#RRGGBB` y se normaliza a minúsculas.
+* El nombre es obligatorio, único y admite hasta 50 caracteres.
+* La descripción es opcional y admite hasta 255 caracteres.
+* El listado utiliza el nivel ascendente para representar el orden de impacto.
+* No se elimina físicamente ninguna prioridad.
+* Se mantienen un modelo y un controlador específicos porque las reglas de
+  nivel y color no pertenecen a categorías.
+
+### Verificación del corte 3
+
+* Validación previa a la persistencia de nombre, nivel, descripción y color.
+* Comprobaciones independientes de nombre y nivel únicos durante alta y edición.
+* Sentencias preparadas para listado, búsqueda y todas las mutaciones.
+* Salida dinámica escapada y formularios con errores accesibles.
+* Acceso exclusivo del administrador y CSRF obligatorio en cada mutación.
+* Suite completa con 116 pruebas y 366 aserciones.
+
+### Rutas incorporadas en el corte 4
+
+| Método | Ruta | Responsabilidad |
+|---|---|---|
+| `GET` | `/admin/estados-ticket` | Listar estados según su orden |
+| `GET` | `/admin/estados-ticket/crear` | Mostrar el formulario de alta |
+| `POST` | `/admin/estados-ticket` | Validar y crear un estado |
+| `GET` | `/admin/estados-ticket/{id}/editar` | Mostrar el formulario de edición |
+| `POST` | `/admin/estados-ticket/{id}/actualizar` | Validar y actualizar un estado |
+| `POST` | `/admin/estados-ticket/{id}/estado` | Activar o desactivar sin eliminar |
+
+### Decisiones del corte 4
+
+* El orden es obligatorio, único y debe ser un entero entre 1 y 255.
+* `es_final` es un indicador descriptivo y no ejecuta transiciones, cierres ni
+  cambios de fechas por sí mismo.
+* El nombre es obligatorio, único y admite hasta 60 caracteres.
+* La descripción es opcional y admite hasta 255 caracteres.
+* El listado utiliza el orden ascendente configurado.
+* No se elimina físicamente ningún estado.
+* La protección del estado inicial y las transiciones permitidas se definirán
+  junto con el flujo real de tickets.
+
+### Verificación del corte 4
+
+* Validación previa de nombre, descripción, orden e indicador final.
+* Rechazo de valores manipulados para `es_final`.
+* Comprobaciones independientes de nombre y orden únicos.
+* Acceso administrativo y CSRF en todas las mutaciones.
+* Suite completa con 134 pruebas y 442 aserciones.
+* Conexión real de solo lectura verificada contra MariaDB: 5 categorías, 4
+  prioridades y 7 estados; listado de estados renderizado con HTTP 200.
+
+### Cierre del corte 5
+
+* Se incorporó `/admin/configuraciones` como acceso central a categorías,
+  prioridades y estados de ticket.
+* El dashboard muestra un único acceso de configuraciones al administrador y
+  no lo presenta a técnicos o clientes.
+* Los listados permiten regresar al centro administrativo sin pasar por el
+  dashboard.
+* La ruta central y cada catálogo conservan autorización independiente mediante
+  `AuthMiddleware` y `RoleMiddleware`.
+* Las pruebas integradas utilizan las rutas web reales y ya no dependen de una
+  ruta administrativa simulada.
+* El usuario confirmó manualmente los flujos de alta, edición y cambio de estado
+  de los tres catálogos.
+* La conexión real a MariaDB confirmó los datos maestros esperados.
+* Suite completa con 135 pruebas y 448 aserciones.
+
+### Resultado de la Fase 3
+
+La Fase 3 queda completada. El administrador puede gestionar las tablas
+maestras desde una navegación común, mientras que invitados, técnicos y
+clientes no pueden acceder a sus rutas.
 
 ### Resultado esperado
 
@@ -419,17 +571,13 @@ Una fase puede dividirse en tareas menores, pero no se deben mantener demasiados
 El orden recomendado inmediato es:
 
 ```text
-Variables de entorno
+Definir reglas y permisos del ticket
     ↓
-Request
+Implementar el modelo de acceso a tickets
     ↓
-Response
+Crear el alta de tickets
     ↓
-Router
-    ↓
-Controlador y vistas
-    ↓
-Login
+Incorporar listado y detalle
 ```
 
 El próximo corte de desarrollo debe ser pequeño y verificable.

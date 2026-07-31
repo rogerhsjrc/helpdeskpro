@@ -182,6 +182,10 @@ DashboardController
 
 Los controladores coordinan el caso de uso, pero no deben contener SQL.
 
+`ConfiguracionController` presenta el acceso central a categorías, prioridades
+y estados de ticket. La ruta utiliza el mismo pipeline administrativo que los
+catálogos y no reemplaza la autorización individual de cada recurso.
+
 ### Modelos
 
 Ejemplos:
@@ -202,6 +206,23 @@ Los modelos administran el acceso a datos relacionado con su entidad.
 actualiza su último acceso. Puede recibir una conexión PDO controlada para
 pruebas; en el flujo normal obtiene la conexión compartida exclusivamente desde
 `App\Core\Database`.
+
+`App\Models\Categoria` encapsula el listado, la búsqueda, la validación de
+unicidad y las operaciones de alta, edición y cambio de estado lógico sobre
+`categorias`. La validación de entrada permanece en `CategoriaController`
+porque este caso de uso afecta una sola entidad y no justifica incorporar un
+servicio adicional.
+
+`App\Models\Prioridad` aplica el mismo límite de responsabilidad sobre
+`prioridades`, incorporando las comprobaciones independientes de nombre y nivel
+únicos. `PrioridadController` valida el rango numérico y el color hexadecimal;
+estas reglas específicas justifican mantener modelos y controladores explícitos
+en lugar de crear un catálogo genérico.
+
+`App\Models\EstadoTicket` administra el orden, el indicador `es_final` y el
+estado lógico de `estados_ticket`. `EstadoTicketController` trata `es_final`
+como una descripción del estado; las transiciones y sus efectos sobre fechas o
+historial se incorporarán cuando exista el flujo de tickets.
 
 ### Servicios
 
@@ -234,6 +255,12 @@ CsrfMiddleware
 ```
 
 Los middleware filtran la petición antes de ejecutar un controlador.
+
+`RoleMiddleware` recibe una lista explícita de nombres de rol y compara el rol
+de la identidad mínima almacenada en sesión. Las rutas administrativas combinan
+primero `AuthMiddleware` y luego `RoleMiddleware`, de modo que un invitado se
+redirige al login y un usuario autenticado sin permiso recibe una respuesta
+HTML 403 sin ejecutar el controlador protegido.
 
 ---
 
@@ -285,6 +312,10 @@ token CSRF; durante el logout elimina los datos, la cookie y la sesión activa.
 Las rutas de autenticación utilizan `GuestMiddleware`, mientras que el
 dashboard y el logout utilizan `AuthMiddleware`. Los formularios `POST` pasan
 además por `CsrfMiddleware`.
+
+Los módulos restringidos por rol incorporan `RoleMiddleware` en su pipeline.
+La autorización se resuelve antes del controlador y no depende de que la vista
+muestre u oculte enlaces o formularios.
 
 ---
 
