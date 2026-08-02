@@ -86,4 +86,67 @@ final class Usuario
             'usuario_id' => $usuarioId,
         ]);
     }
+
+    /**
+     * Lista técnicos activos disponibles para asignar tickets.
+     *
+     * @return list<array{id: int, nombre: string, apellido: string, email: string}>
+     */
+    public function activeTechnicians(): array
+    {
+        $listTechniciansStatement = $this->databaseConnection->prepare(
+            'SELECT usuarios.id, usuarios.nombre, usuarios.apellido, usuarios.email
+             FROM usuarios
+             INNER JOIN roles ON roles.id = usuarios.rol_id
+             WHERE usuarios.activo = 1
+               AND roles.nombre = :rol
+             ORDER BY usuarios.apellido ASC, usuarios.nombre ASC'
+        );
+        $listTechniciansStatement->execute(['rol' => 'Técnico']);
+        $technicianRows = $listTechniciansStatement->fetchAll();
+
+        return array_map(
+            static fn (array $technicianRow): array => [
+                'id' => (int) $technicianRow['id'],
+                'nombre' => (string) $technicianRow['nombre'],
+                'apellido' => (string) $technicianRow['apellido'],
+                'email' => (string) $technicianRow['email'],
+            ],
+            $technicianRows
+        );
+    }
+
+    /**
+     * Busca un técnico activo por identificador y confirma su rol actual.
+     *
+     * @return array{id: int, nombre: string, apellido: string, email: string}|null
+     */
+    public function findActiveTechnicianById(int $technicianId): ?array
+    {
+        $findTechnicianStatement = $this->databaseConnection->prepare(
+            'SELECT usuarios.id, usuarios.nombre, usuarios.apellido, usuarios.email
+             FROM usuarios
+             INNER JOIN roles ON roles.id = usuarios.rol_id
+             WHERE usuarios.id = :tecnico_id
+               AND usuarios.activo = 1
+               AND roles.nombre = :rol
+             LIMIT 1'
+        );
+        $findTechnicianStatement->execute([
+            'tecnico_id' => $technicianId,
+            'rol' => 'Técnico',
+        ]);
+        $technicianRow = $findTechnicianStatement->fetch();
+
+        if (!is_array($technicianRow)) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $technicianRow['id'],
+            'nombre' => (string) $technicianRow['nombre'],
+            'apellido' => (string) $technicianRow['apellido'],
+            'email' => (string) $technicianRow['email'],
+        ];
+    }
 }

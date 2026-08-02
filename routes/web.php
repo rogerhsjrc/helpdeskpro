@@ -10,6 +10,7 @@ use App\Controllers\ErrorController;
 use App\Controllers\EstadoTicketController;
 use App\Controllers\HomeController;
 use App\Controllers\PrioridadController;
+use App\Controllers\TicketController;
 use App\Core\Router;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\CsrfMiddleware;
@@ -40,6 +41,76 @@ $router->post(
     '/logout',
     [AuthController::class, 'logout'],
     [new AuthMiddleware(), new CsrfMiddleware()]
+);
+$ticketReaderMiddleware = [
+    new AuthMiddleware(),
+    new RoleMiddleware(['Administrador', 'Técnico', 'Cliente']),
+];
+$router->get(
+    '/tickets',
+    [TicketController::class, 'index'],
+    $ticketReaderMiddleware
+);
+$clientTicketCreationMiddleware = [
+    new AuthMiddleware(),
+    new RoleMiddleware(['Cliente']),
+];
+$router->get(
+    '/tickets/crear',
+    [TicketController::class, 'create'],
+    $clientTicketCreationMiddleware
+);
+$router->post(
+    '/tickets',
+    [TicketController::class, 'store'],
+    [...$clientTicketCreationMiddleware, new CsrfMiddleware()]
+);
+$router->get(
+    '/tickets/{codigo}',
+    [TicketController::class, 'show'],
+    $ticketReaderMiddleware
+);
+$ticketEditorMiddleware = [
+    new AuthMiddleware(),
+    new RoleMiddleware(['Administrador', 'Cliente']),
+];
+$router->get(
+    '/tickets/{codigo}/editar',
+    [TicketController::class, 'edit'],
+    $ticketEditorMiddleware
+);
+$router->post(
+    '/tickets/{codigo}/actualizar',
+    [TicketController::class, 'update'],
+    [...$ticketEditorMiddleware, new CsrfMiddleware()]
+);
+$ticketAssignmentMiddleware = [
+    new AuthMiddleware(),
+    new RoleMiddleware(['Administrador']),
+];
+$router->get(
+    '/tickets/{codigo}/asignar',
+    [TicketController::class, 'assignment'],
+    $ticketAssignmentMiddleware
+);
+$router->post(
+    '/tickets/{codigo}/asignacion',
+    [TicketController::class, 'updateAssignment'],
+    [...$ticketAssignmentMiddleware, new CsrfMiddleware()]
+);
+$ticketWorkflowMiddleware = [
+    new AuthMiddleware(),
+    new RoleMiddleware(['Administrador', 'Técnico']),
+];
+$router->get(
+    '/tickets/{codigo}/gestionar',
+    [TicketController::class, 'workflow'],
+    $ticketWorkflowMiddleware
+);
+$router->post(
+    '/tickets/{codigo}/flujo',
+    [TicketController::class, 'updateWorkflow'],
+    [...$ticketWorkflowMiddleware, new CsrfMiddleware()]
 );
 $administratorMiddleware = [
     new AuthMiddleware(),

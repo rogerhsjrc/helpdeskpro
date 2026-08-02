@@ -19,6 +19,7 @@ use App\Core\View;
     <table>
         <thead>
             <tr>
+                <th scope="col">Código</th>
                 <th scope="col">Orden</th>
                 <th scope="col">Nombre</th>
                 <th scope="col">Descripción</th>
@@ -30,6 +31,7 @@ use App\Core\View;
         <tbody>
             <?php foreach ($ticketStatuses as $ticketStatus): ?>
                 <tr>
+                    <td><?= View::escape($ticketStatus['codigo']) ?></td>
                     <td><?= View::escape($ticketStatus['orden']) ?></td>
                     <td><?= View::escape($ticketStatus['nombre']) ?></td>
                     <td><?= View::escape($ticketStatus['descripcion'] ?? 'Sin descripción') ?></td>

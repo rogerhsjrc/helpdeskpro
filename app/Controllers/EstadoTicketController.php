@@ -46,11 +46,13 @@ final class EstadoTicketController extends Controller
             '/admin/estados-ticket',
             'Crear estado',
             [
+                'codigo' => '',
                 'nombre' => '',
                 'descripcion' => '',
                 'orden' => '',
                 'es_final' => '0',
-            ]
+            ],
+            codeEditable: true
         );
     }
 
@@ -63,7 +65,8 @@ final class EstadoTicketController extends Controller
         $validationErrors = $this->validateTicketStatus($formValues);
         $validationErrors = $this->addUniquenessErrors(
             $formValues,
-            $validationErrors
+            $validationErrors,
+            checkCode: true
         );
 
         if ($validationErrors !== []) {
@@ -73,12 +76,14 @@ final class EstadoTicketController extends Controller
                 'Crear estado',
                 $formValues,
                 $validationErrors,
-                422
+                422,
+                true
             );
         }
 
         try {
             $this->ticketStatusModel()->create(
+                $formValues['codigo'],
                 $formValues['nombre'],
                 $this->nullableDescription($formValues['descripcion']),
                 (int) $formValues['orden'],
@@ -94,8 +99,9 @@ final class EstadoTicketController extends Controller
                 '/admin/estados-ticket',
                 'Crear estado',
                 $formValues,
-                ['general' => 'El nombre o el orden ya están en uso.'],
-                422
+                ['general' => 'El código, el nombre o el orden ya están en uso.'],
+                422,
+                true
             );
         }
 
@@ -126,6 +132,7 @@ final class EstadoTicketController extends Controller
             ),
             'Guardar cambios',
             [
+                'codigo' => $ticketStatus['codigo'],
                 'nombre' => $ticketStatus['nombre'],
                 'descripcion' => $ticketStatus['descripcion'] ?? '',
                 'orden' => (string) $ticketStatus['orden'],
@@ -149,6 +156,7 @@ final class EstadoTicketController extends Controller
         }
 
         $formValues = $this->ticketStatusFormValues($request);
+        $formValues['codigo'] = $ticketStatus['codigo'];
         $validationErrors = $this->validateTicketStatus($formValues);
         $validationErrors = $this->addUniquenessErrors(
             $formValues,
@@ -227,6 +235,22 @@ final class EstadoTicketController extends Controller
             );
         }
 
+        if (
+            $ticketStatus['codigo'] === EstadoTicket::CODIGO_ABIERTO
+            && $submittedStatus === '0'
+        ) {
+            return $this->render(
+                'errors/422',
+                [
+                    'title' => 'Estado inicial obligatorio',
+                    'message' => 'El estado inicial ABIERTO no puede desactivarse.',
+                    'backUrl' => '/admin/estados-ticket',
+                    'backLabel' => 'Volver a estados de ticket',
+                ],
+                422
+            );
+        }
+
         $ticketStatusActive = $submittedStatus === '1';
         $this->ticketStatusModel()->updateActiveStatus(
             $normalizedTicketStatusId,
@@ -246,6 +270,7 @@ final class EstadoTicketController extends Controller
      * Obtiene y normaliza los valores editables enviados por el formulario.
      *
      * @return array{
+     *     codigo: string,
      *     nombre: string,
      *     descripcion: string,
      *     orden: string,
@@ -255,6 +280,7 @@ final class EstadoTicketController extends Controller
     private function ticketStatusFormValues(Request $request): array
     {
         $submittedName = $request->input('nombre');
+        $submittedCode = $request->input('codigo');
         $submittedDescription = $request->input('descripcion');
         $submittedOrder = $request->input('orden');
         $submittedFinalStatus = $request->input('es_final');
@@ -268,6 +294,9 @@ final class EstadoTicketController extends Controller
         }
 
         return [
+            'codigo' => is_string($submittedCode)
+                ? strtoupper(trim($submittedCode))
+                : '',
             'nombre' => is_string($submittedName) ? trim($submittedName) : '',
             'descripcion' => is_string($submittedDescription)
                 ? trim($submittedDescription)
@@ -281,6 +310,7 @@ final class EstadoTicketController extends Controller
      * Valida los campos propios de un estado antes de consultar la base.
      *
      * @param array{
+     *     codigo: string,
      *     nombre: string,
      *     descripcion: string,
      *     orden: string,
@@ -292,6 +322,12 @@ final class EstadoTicketController extends Controller
     private function validateTicketStatus(array $formValues): array
     {
         $validationErrors = [];
+
+        if ($formValues['codigo'] === '') {
+            $validationErrors['codigo'] = 'El código interno es obligatorio.';
+        } elseif (preg_match('/^[A-Z][A-Z0-9_]{2,39}$/', $formValues['codigo']) !== 1) {
+            $validationErrors['codigo'] = 'El código debe tener entre 3 y 40 caracteres, comenzar con una letra y usar sólo A-Z, números o guiones bajos.';
+        }
 
         if ($formValues['nombre'] === '') {
             $validationErrors['nombre'] = 'El nombre es obligatorio.';
@@ -324,6 +360,7 @@ final class EstadoTicketController extends Controller
      * Agrega conflictos de nombre y orden sólo cuando sus formatos son válidos.
      *
      * @param array{
+     *     codigo: string,
      *     nombre: string,
      *     descripcion: string,
      *     orden: string,
@@ -336,8 +373,17 @@ final class EstadoTicketController extends Controller
     private function addUniquenessErrors(
         array $formValues,
         array $validationErrors,
-        ?int $excludedTicketStatusId = null
+        ?int $excludedTicketStatusId = null,
+        bool $checkCode = false
     ): array {
+        if (
+            $checkCode
+            && !isset($validationErrors['codigo'])
+            && $this->ticketStatusModel()->codeExists($formValues['codigo'])
+        ) {
+            $validationErrors['codigo'] = 'Ya existe un estado con ese código interno.';
+        }
+
         if (
             !isset($validationErrors['nombre'])
             && $this->ticketStatusModel()->nameExists(
@@ -365,6 +411,7 @@ final class EstadoTicketController extends Controller
      * Renderiza el formulario compartido de alta y edición.
      *
      * @param array{
+     *     codigo: string,
      *     nombre: string,
      *     descripcion: string,
      *     orden: string,
@@ -378,7 +425,8 @@ final class EstadoTicketController extends Controller
         string $submitLabel,
         array $formValues,
         array $validationErrors = [],
-        int $statusCode = 200
+        int $statusCode = 200,
+        bool $codeEditable = false
     ): Response {
         return $this->render('estados-ticket/form', [
             'title' => $heading . ' | HelpDesk Pro',
@@ -387,6 +435,7 @@ final class EstadoTicketController extends Controller
             'submitLabel' => $submitLabel,
             'formValues' => $formValues,
             'validationErrors' => $validationErrors,
+            'codeEditable' => $codeEditable,
             'csrfToken' => Session::csrfToken(),
         ], $statusCode);
     }

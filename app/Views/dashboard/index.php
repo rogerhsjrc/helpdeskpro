@@ -19,6 +19,15 @@ use App\Core\View;
 <p>Rol: <?= View::escape($usuario['rol']) ?></p>
 <p>Los indicadores del dashboard se incorporarán en la Fase 9.</p>
 
+<?php if ($usuario['rol'] === 'Cliente'): ?>
+    <p><a href="/tickets">Mis tickets</a></p>
+    <p><a href="/tickets/crear">Crear un ticket</a></p>
+<?php elseif ($usuario['rol'] === 'Técnico'): ?>
+    <p><a href="/tickets">Tickets asignados</a></p>
+<?php else: ?>
+    <p><a href="/tickets">Gestionar tickets</a></p>
+<?php endif; ?>
+
 <?php if ($usuario['rol'] === 'Administrador'): ?>
     <p><a href="/admin/configuraciones">Administrar configuraciones</a></p>
 <?php endif; ?>

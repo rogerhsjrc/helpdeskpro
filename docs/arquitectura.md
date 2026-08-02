@@ -186,6 +186,11 @@ Los controladores coordinan el caso de uso, pero no deben contener SQL.
 y estados de ticket. La ruta utiliza el mismo pipeline administrativo que los
 catálogos y no reemplaza la autorización individual de cada recurso.
 
+`TicketController` coordina también la navegación contextual del listado. A
+cada ticket visible le agrega indicadores de presentación para editar, asignar
+o gestionar; los indicadores no conceden permisos y las rutas vuelven a pasar
+por middleware y autorización del recurso.
+
 ### Modelos
 
 Ejemplos:
@@ -224,6 +229,20 @@ estado lógico de `estados_ticket`. `EstadoTicketController` trata `es_final`
 como una descripción del estado; las transiciones y sus efectos sobre fechas o
 historial se incorporarán cuando exista el flujo de tickets.
 
+Desde la Fase 4, `EstadoTicket` también expone códigos estables mediante
+constantes. El código se define durante el alta y no forma parte de la
+actualización posterior, evitando que una edición de nombre rompa las reglas de
+negocio.
+
+`App\Models\Ticket` reúne la lectura relacional de la incidencia y aplica en
+SQL el ámbito visible según la identidad: sin restricción adicional para el
+administrador, por `cliente_id` para el cliente y por `tecnico_id` para el
+técnico. El mismo criterio se utiliza en el conteo, el listado paginado y el
+detalle, de modo que el controlador nunca recibe un ticket ajeno. Los filtros
+opcionales de estado, prioridad, técnico y texto se agregan a ese ámbito y se
+reutilizan sin diferencias entre el conteo y la página. Esta lectura afecta una
+sola entidad principal y no justifica por sí sola un servicio.
+
 ### Servicios
 
 Ejemplos potenciales:
@@ -240,6 +259,26 @@ Los servicios se crearán únicamente cuando exista lógica de negocio suficient
 `AuthService` normaliza y valida el correo, verifica la contraseña y coordina el
 registro del último acceso. Devuelve únicamente los datos mínimos permitidos
 para la sesión.
+
+`TicketService` se incorpora cuando comienza la escritura del flujo. Valida que
+categoría, prioridad y estado inicial sigan disponibles, genera el código
+público, inserta el ticket y registra el evento `CREACION`. Todos los modelos
+comparten la misma conexión PDO para que el servicio confirme o revierta la
+operación completa mediante una transacción.
+
+La edición del contenido original reutiliza el servicio. Durante el `POST`, el
+ticket se consulta con bloqueo de fila y se reevalúan propiedad, estado y
+asignación antes de actualizar categoría, asunto o descripción. Los eventos de
+edición se registran por campo dentro de la misma transacción.
+
+La asignación técnica utiliza el mismo patrón transaccional. `Usuario` aporta
+únicamente candidatos activos con rol Técnico; `TicketService` bloquea el
+ticket, actualiza técnico y fecha de asignación, y registra el evento adecuado
+sin modificar implícitamente su estado.
+
+Los cambios de estado y prioridad también pertenecen a `TicketService`. El
+servicio aplica una matriz explícita basada en códigos estables, bloquea la fila
+y delega al modelo los efectos sobre fechas antes de registrar la auditoría.
 
 Ejemplo: crear un ticket, registrar un adjunto y generar un evento de historial dentro de una transacción puede pertenecer a `TicketService`.
 

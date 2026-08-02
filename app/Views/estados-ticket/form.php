@@ -26,6 +26,35 @@ use App\Core\View;
     >
 
     <div>
+        <?php if ($codeEditable): ?>
+            <label for="codigo">Código interno</label>
+            <input
+                id="codigo"
+                type="text"
+                name="codigo"
+                value="<?= View::escape($formValues['codigo']) ?>"
+                minlength="3"
+                maxlength="40"
+                pattern="[A-Za-z][A-Za-z0-9_]{2,39}"
+                required
+                <?php if (isset($validationErrors['codigo'])): ?>
+                    aria-invalid="true"
+                    aria-describedby="codigo-error"
+                <?php endif; ?>
+            >
+            <?php if (isset($validationErrors['codigo'])): ?>
+                <p id="codigo-error"><?= View::escape($validationErrors['codigo']) ?></p>
+            <?php endif; ?>
+            <p>Identificador estable: después de crear el estado no podrá modificarse.</p>
+        <?php else: ?>
+            <p>
+                <strong>Código interno:</strong>
+                <code><?= View::escape($formValues['codigo']) ?></code>
+            </p>
+        <?php endif; ?>
+    </div>
+
+    <div>
         <label for="nombre">Nombre</label>
         <input
             id="nombre"

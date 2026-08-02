@@ -32,7 +32,7 @@ try {
     $request = Request::capture();
     $router = new Router();
 
-    require $rootPath . '/routes/web.php';
+    require $rootPath . '/routes/web.php'; // Hace las veces de Routes.php en un framework más grande
 
     $response = $router->dispatch($request);
 } catch (Throwable $exception) {

@@ -12,6 +12,38 @@ use PHPUnit\Framework\TestCase;
 final class CategoriaTest extends TestCase
 {
     /**
+     * Lista únicamente categorías activas para formularios operativos.
+     */
+    public function testListsOnlyActiveCategories(): void
+    {
+        $databaseConnection = $this->createMock(PDO::class);
+        $listCategoriesStatement = $this->createStub(PDOStatement::class);
+        $databaseConnection->expects(self::once())
+            ->method('prepare')
+            ->with(self::callback(
+                static fn (string $query): bool => str_contains(
+                    $query,
+                    'WHERE activo = 1'
+                )
+            ))
+            ->willReturn($listCategoriesStatement);
+        $listCategoriesStatement->method('fetchAll')->willReturn([
+            [
+                'id' => '2',
+                'nombre' => 'Hardware',
+                'descripcion' => null,
+                'activo' => '1',
+            ],
+        ]);
+        $categoryModel = new Categoria($databaseConnection);
+
+        $categories = $categoryModel->active();
+
+        self::assertCount(1, $categories);
+        self::assertTrue($categories[0]['activo']);
+    }
+
+    /**
      * Lista y convierte todas las categorías utilizando el orden alfabético.
      */
     public function testListsCategoriesWithApplicationTypes(): void

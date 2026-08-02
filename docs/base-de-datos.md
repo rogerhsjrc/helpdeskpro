@@ -89,6 +89,27 @@ php .\scripts\seed.php --demo
 `DemoSeeder` agrega dos usuarios ficticios y un ticket de ejemplo. No se
 ejecuta durante una instalación normal.
 
+Los estados de ticket poseen un `codigo` interno, único e inmutable desde la
+interfaz. Las reglas de negocio utilizan este código y no el nombre editable.
+Los códigos iniciales son `ABIERTO`, `ASIGNADO`, `EN_PROCESO`,
+`PENDIENTE_CLIENTE`, `RESUELTO`, `CERRADO` y `CANCELADO`.
+
+Los tickets creados desde la aplicación comienzan sin técnico, utilizan el
+estado activo identificado por `ABIERTO` y reciben un código público con formato
+`HD-YYYYMMDD-XXXXXX`. La inserción del ticket y el evento `CREACION` asociado en
+`ticket_historial` se confirman dentro de la misma transacción.
+
+Las instalaciones anteriores a la Fase 4 deben ejecutar una vez:
+
+```powershell
+mysql -u root -p helpdesk_pro `
+    --execute="source database/upgrade_fase4_codigos_estados.sql"
+```
+
+El archivo comprueba la existencia de columna e índice mediante
+`information_schema`, por lo que puede repetirse sin duplicarlos. El SQL evita
+sintaxis exclusiva de un motor y fue verificado también sobre MySQL 8.4.3.
+
 ## 6. Seguridad
 
 * Los hashes se generan mediante `password_hash`.

@@ -131,7 +131,19 @@ final class Router
     }
 
     /**
-     * Compone y ejecuta los middleware asociados antes del controlador.
+     * Construye y ejecuta el pipeline de middleware de la ruta encontrada.
+     *
+     * El pipeline utiliza una composición de closures similar a capas
+     * envolventes. Para una ruta configurada con `[Auth, Csrf]`, el resultado
+     * conceptual es:
+     *
+     * `Auth(Request, Csrf(Request, Controller))`
+     *
+     * Cada middleware decide si llama a `$next`. Si no lo hace, puede devolver
+     * inmediatamente una redirección o un error y el controlador no se ejecuta.
+     * Cuando todos permiten continuar, la petición llega a `$destination`, que
+     * invoca el handler. La respuesta regresa después por las mismas capas en
+     * orden inverso, permitiendo que un middleware también la modifique.
      *
      * @param callable|array{class-string, string} $handler
      * @param list<string> $parameters
@@ -143,20 +155,30 @@ final class Router
         array $parameters,
         array $middleware
     ): Response {
+        // Esta closure es el destino final: ejecuta el controlador o callable
+        // solamente después de que todos los middleware hayan continuado.
         $destination = fn (Request $nextRequest): Response => $this->invokeHandler(
             $handler,
             $nextRequest,
             $parameters
         );
 
+        // array_reduce() envuelve la closure acumulada con cada middleware.
+        // Se invierte la lista para conservar el orden declarado en la ruta:
+        // el primer middleware registrado debe ser la capa más externa y, por
+        // lo tanto, el primero que recibe la petición.
         $pipeline = array_reduce(
             array_reverse($middleware),
             function (Closure $next, MiddlewareInterface|callable $current): Closure {
+                // La closure devuelta pasa a ser el nuevo acumulador. Conserva
+                // tanto el middleware actual como la siguiente capa del flujo.
                 return function (Request $currentRequest) use ($current, $next): Response {
                     if ($current instanceof MiddlewareInterface) {
                         return $current->process($currentRequest, $next);
                     }
 
+                    // También se admiten callables con el mismo contrato:
+                    // reciben Request y Closure, y deben devolver Response.
                     $response = $current($currentRequest, $next);
 
                     if (!$response instanceof Response) {
@@ -169,6 +191,8 @@ final class Router
             $destination
         );
 
+        // La composición anterior sólo construye closures. La ejecución real
+        // comienza aquí, entregando la petición a la capa más externa.
         return $pipeline($request);
     }
 
