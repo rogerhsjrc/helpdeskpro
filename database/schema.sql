@@ -74,6 +74,7 @@ CREATE TABLE prioridades (
 
 CREATE TABLE estados_ticket (
     id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    codigo VARCHAR(40) NOT NULL,
     nombre VARCHAR(60) NOT NULL,
     descripcion VARCHAR(255) NULL,
     orden TINYINT UNSIGNED NOT NULL,
@@ -83,6 +84,7 @@ CREATE TABLE estados_ticket (
     updated_at DATETIME NOT NULL
         DEFAULT CURRENT_TIMESTAMP
         ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT uq_estados_ticket_codigo UNIQUE (codigo),
     CONSTRAINT uq_estados_ticket_nombre UNIQUE (nombre),
     CONSTRAINT uq_estados_ticket_orden UNIQUE (orden),
     INDEX idx_estados_ticket_activo (activo),

@@ -41,6 +41,7 @@ final class EstadoTicketControllerTest extends TestCase
         $listTicketStatusesStatement->method('fetchAll')->willReturn([
             [
                 'id' => '8',
+                'codigo' => 'ARCHIVADO',
                 'nombre' => '<script>alert(1)</script>',
                 'descripcion' => 'Estado <final>',
                 'orden' => '8',
@@ -66,6 +67,7 @@ final class EstadoTicketControllerTest extends TestCase
             'action="/admin/estados-ticket/8/estado"',
             $response->content()
         );
+        self::assertStringContainsString('ARCHIVADO', $response->content());
         self::assertMatchesRegularExpression('/<td>Sí<\/td>/', $response->content());
     }
 
@@ -83,8 +85,40 @@ final class EstadoTicketControllerTest extends TestCase
         self::assertSame(200, $response->statusCode());
         self::assertStringContainsString('Nuevo estado de ticket', $response->content());
         self::assertStringContainsString('max="255"', $response->content());
+        self::assertStringContainsString('name="codigo"', $response->content());
         self::assertStringContainsString('name="es_final"', $response->content());
         self::assertStringContainsString('name="_token"', $response->content());
+    }
+
+    /**
+     * Muestra el código existente sin permitir modificarlo durante la edición.
+     */
+    public function testShowsImmutableCodeOnEditForm(): void
+    {
+        $databaseConnection = $this->createStub(PDO::class);
+        $findTicketStatusStatement = $this->createStub(PDOStatement::class);
+        $databaseConnection->method('prepare')->willReturn($findTicketStatusStatement);
+        $findTicketStatusStatement->method('fetch')->willReturn([
+            'id' => '1',
+            'codigo' => 'ABIERTO',
+            'nombre' => 'Abierto',
+            'descripcion' => null,
+            'orden' => '1',
+            'es_final' => '0',
+            'activo' => '1',
+        ]);
+        $controller = new EstadoTicketController(
+            new EstadoTicket($databaseConnection)
+        );
+
+        $response = $controller->edit(
+            new Request('GET', '/admin/estados-ticket/1/editar'),
+            '1'
+        );
+
+        self::assertSame(200, $response->statusCode());
+        self::assertStringContainsString('<code>ABIERTO</code>', $response->content());
+        self::assertStringNotContainsString('name="codigo"', $response->content());
     }
 
     /**
@@ -111,6 +145,10 @@ final class EstadoTicketControllerTest extends TestCase
         ));
 
         self::assertSame(422, $response->statusCode());
+        self::assertStringContainsString(
+            'El código interno es obligatorio.',
+            $response->content()
+        );
         self::assertStringContainsString('El nombre es obligatorio.', $response->content());
         self::assertStringContainsString(
             'El orden debe ser un entero entre 1 y 255.',
@@ -123,19 +161,22 @@ final class EstadoTicketControllerTest extends TestCase
     }
 
     /**
-     * Informa por separado los conflictos de nombre y orden.
+     * Informa por separado los conflictos de código, nombre y orden.
      */
     public function testRejectsDuplicateNameAndOrder(): void
     {
         $databaseConnection = $this->createMock(PDO::class);
+        $codeExistsStatement = $this->createStub(PDOStatement::class);
         $nameExistsStatement = $this->createStub(PDOStatement::class);
         $orderExistsStatement = $this->createStub(PDOStatement::class);
-        $databaseConnection->expects(self::exactly(2))
+        $databaseConnection->expects(self::exactly(3))
             ->method('prepare')
             ->willReturnOnConsecutiveCalls(
+                $codeExistsStatement,
                 $nameExistsStatement,
                 $orderExistsStatement
             );
+        $codeExistsStatement->method('fetchColumn')->willReturn(1);
         $nameExistsStatement->method('fetchColumn')->willReturn(1);
         $orderExistsStatement->method('fetchColumn')->willReturn(1);
         $controller = new EstadoTicketController(
@@ -147,6 +188,7 @@ final class EstadoTicketControllerTest extends TestCase
             '/admin/estados-ticket',
             [],
             [
+                'codigo' => 'CERRADO',
                 'nombre' => 'Cerrado',
                 'descripcion' => '',
                 'orden' => '6',
@@ -155,6 +197,10 @@ final class EstadoTicketControllerTest extends TestCase
         ));
 
         self::assertSame(422, $response->statusCode());
+        self::assertStringContainsString(
+            'Ya existe un estado con ese código interno.',
+            $response->content()
+        );
         self::assertStringContainsString(
             'Ya existe un estado con ese nombre.',
             $response->content()
@@ -171,21 +217,25 @@ final class EstadoTicketControllerTest extends TestCase
     public function testCreatesNonFinalTicketStatusAndRedirects(): void
     {
         $databaseConnection = $this->createMock(PDO::class);
+        $codeExistsStatement = $this->createStub(PDOStatement::class);
         $nameExistsStatement = $this->createStub(PDOStatement::class);
         $orderExistsStatement = $this->createStub(PDOStatement::class);
         $createTicketStatusStatement = $this->createMock(PDOStatement::class);
-        $databaseConnection->expects(self::exactly(3))
+        $databaseConnection->expects(self::exactly(4))
             ->method('prepare')
             ->willReturnOnConsecutiveCalls(
+                $codeExistsStatement,
                 $nameExistsStatement,
                 $orderExistsStatement,
                 $createTicketStatusStatement
             );
+        $codeExistsStatement->method('fetchColumn')->willReturn(0);
         $nameExistsStatement->method('fetchColumn')->willReturn(0);
         $orderExistsStatement->method('fetchColumn')->willReturn(0);
         $createTicketStatusStatement->expects(self::once())
             ->method('execute')
             ->with([
+                'codigo' => 'EN_REVISION',
                 'nombre' => 'En revisión',
                 'descripcion' => null,
                 'orden' => 8,
@@ -201,6 +251,7 @@ final class EstadoTicketControllerTest extends TestCase
             '/admin/estados-ticket',
             [],
             [
+                'codigo' => ' en_revision ',
                 'nombre' => '  En revisión ',
                 'descripcion' => '  ',
                 'orden' => '8',
@@ -235,6 +286,7 @@ final class EstadoTicketControllerTest extends TestCase
             );
         $findTicketStatusStatement->method('fetch')->willReturn([
             'id' => '5',
+            'codigo' => 'RESUELTO',
             'nombre' => 'Resuelto',
             'descripcion' => null,
             'orden' => '5',
@@ -277,6 +329,7 @@ final class EstadoTicketControllerTest extends TestCase
                 '/admin/estados-ticket/5/actualizar',
                 [],
                 [
+                    'codigo' => 'CODIGO_MANIPULADO',
                     'nombre' => 'Solucionado',
                     'descripcion' => 'Trabajo completado.',
                     'orden' => '8',
@@ -309,6 +362,7 @@ final class EstadoTicketControllerTest extends TestCase
             );
         $findTicketStatusStatement->method('fetch')->willReturn([
             'id' => '7',
+            'codigo' => 'CANCELADO',
             'nombre' => 'Cancelado',
             'descripcion' => null,
             'orden' => '7',
@@ -340,6 +394,46 @@ final class EstadoTicketControllerTest extends TestCase
         self::assertSame(
             'Estado de ticket desactivado correctamente.',
             Session::pullFlash('success')
+        );
+    }
+
+    /**
+     * Conserva activo el estado inicial requerido para crear tickets.
+     */
+    public function testRejectsDeactivationOfInitialTicketStatus(): void
+    {
+        $databaseConnection = $this->createMock(PDO::class);
+        $findTicketStatusStatement = $this->createStub(PDOStatement::class);
+        $databaseConnection->expects(self::once())
+            ->method('prepare')
+            ->willReturn($findTicketStatusStatement);
+        $findTicketStatusStatement->method('fetch')->willReturn([
+            'id' => '1',
+            'codigo' => 'ABIERTO',
+            'nombre' => 'Abierto',
+            'descripcion' => null,
+            'orden' => '1',
+            'es_final' => '0',
+            'activo' => '1',
+        ]);
+        $controller = new EstadoTicketController(
+            new EstadoTicket($databaseConnection)
+        );
+
+        $response = $controller->updateStatus(
+            new Request(
+                'POST',
+                '/admin/estados-ticket/1/estado',
+                [],
+                ['activo' => '0']
+            ),
+            '1'
+        );
+
+        self::assertSame(422, $response->statusCode());
+        self::assertStringContainsString(
+            'El estado inicial ABIERTO no puede desactivarse.',
+            $response->content()
         );
     }
 }

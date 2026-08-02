@@ -46,6 +46,33 @@ final class Categoria
     }
 
     /**
+     * Obtiene las categorías seleccionables para nuevas operaciones.
+     *
+     * @return list<array{
+     *     id: int,
+     *     nombre: string,
+     *     descripcion: string|null,
+     *     activo: bool
+     * }>
+     */
+    public function active(): array
+    {
+        $listActiveCategoriesStatement = $this->databaseConnection->prepare(
+            'SELECT id, nombre, descripcion, activo
+             FROM categorias
+             WHERE activo = 1
+             ORDER BY nombre ASC'
+        );
+        $listActiveCategoriesStatement->execute();
+        $categoryRows = $listActiveCategoriesStatement->fetchAll();
+
+        return array_map(
+            fn (array $categoryRow): array => $this->mapCategory($categoryRow),
+            $categoryRows
+        );
+    }
+
+    /**
      * Busca una categoría por su identificador, independientemente de su estado.
      *
      * @return array{

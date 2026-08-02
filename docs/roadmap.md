@@ -28,6 +28,7 @@ Completado:
 * Administración de prioridades con nivel, color y estado lógico.
 * Administración de estados de ticket con orden e indicador final.
 * Navegación administrativa central para las tablas maestras.
+* Contrato inicial de tickets y códigos estables para sus estados.
 * Dashboard provisional protegido.
 
 ---
@@ -363,22 +364,23 @@ Implementar el flujo principal del sistema.
 
 ### Tareas
 
-* [ ] Crear tabla `tickets`.
-* [ ] Crear modelo.
-* [ ] Crear servicio si la lógica lo justifica.
-* [ ] Crear ticket.
-* [ ] Listar tickets.
-* [ ] Ver detalle.
-* [ ] Editar datos permitidos.
-* [ ] Asignar técnico.
-* [ ] Cambiar estado.
-* [ ] Cambiar prioridad.
-* [ ] Filtrar por estado.
-* [ ] Filtrar por prioridad.
-* [ ] Filtrar por técnico.
-* [ ] Buscar por código o asunto.
-* [ ] Implementar paginación.
-* [ ] Verificar permisos según rol.
+* [x] Confirmar la tabla `tickets` incluida en el esquema reproducible.
+* [x] Incorporar códigos estables para los estados del sistema.
+* [x] Crear modelo.
+* [x] Crear servicio para mutaciones transaccionales y auditoría.
+* [x] Crear ticket.
+* [x] Listar tickets.
+* [x] Ver detalle.
+* [x] Editar datos permitidos.
+* [x] Asignar técnico.
+* [x] Cambiar estado.
+* [x] Cambiar prioridad.
+* [x] Filtrar por estado.
+* [x] Filtrar por prioridad.
+* [x] Filtrar por técnico.
+* [x] Buscar por código o asunto.
+* [x] Implementar paginación.
+* [x] Verificar permisos de lectura según rol y recurso.
 
 ### Reglas iniciales
 
@@ -386,6 +388,280 @@ Implementar el flujo principal del sistema.
 * El técnico solamente puede operar sobre tickets permitidos.
 * El administrador puede ver todos los tickets.
 * Todo cambio relevante debe auditarse.
+
+### Cortes de implementación
+
+1. [x] Definir contrato, permisos, código público del ticket y códigos estables
+   de estado.
+2. [x] Implementar lectura, listado, detalle, paginación y autorización por
+   recurso.
+3. [x] Implementar la creación de tickets propios para clientes.
+4. [x] Implementar la edición limitada del contenido original.
+5. [x] Implementar asignación y reasignación técnica.
+6. [x] Implementar cambios de estado y prioridad con efectos y auditoría.
+7. [x] Incorporar filtros y búsqueda por código o asunto.
+8. [x] Integrar navegación, documentación y pruebas manuales con los tres roles.
+
+### Decisiones del corte 1
+
+* `estados_ticket.codigo` es único, obligatorio e inmutable desde la interfaz.
+* El estado inicial se resuelve por `ABIERTO`, no por nombre ni identificador
+  numérico.
+* Los códigos del sistema se exponen como constantes de `EstadoTicket`.
+* El estado `ABIERTO` no puede desactivarse porque es obligatorio para crear
+  tickets.
+* Los nuevos estados administrativos requieren un código de 3 a 40 caracteres,
+  normalizado a mayúsculas y compuesto por letras, números o guiones bajos.
+* El código público del ticket utilizará `HD-YYYYMMDD-XXXXXX` con aleatoriedad
+  criptográficamente segura y reintentos acotados ante una colisión.
+* `RoleMiddleware` controla roles admitidos y la capa de negocio comprobará
+  propiedad o asignación sobre cada ticket.
+* La auditoría comenzará con las mutaciones de la Fase 4 aunque su línea de
+  tiempo visual pertenezca a la Fase 7.
+
+### Verificación del corte 1
+
+* El esquema reproducible declara `estados_ticket.codigo` como obligatorio y
+  único.
+* La actualización para instalaciones existentes se ejecutó repetidamente sin
+  duplicar columna, índice ni registros.
+* Los siete estados reales recibieron el código esperado y `ABIERTO` permanece
+  activo.
+* El seed principal se ejecutó dos veces después de la actualización sin crear
+  duplicados.
+* El alta administrativa valida y normaliza nuevos códigos; la edición los
+  presenta como inmutables e ignora valores manipulados.
+* La administración impide desactivar el estado inicial `ABIERTO`.
+* El listado real de estados renderiza correctamente después de la actualización.
+* Suite completa con 139 pruebas y 471 aserciones.
+
+### Rutas incorporadas en el corte 2
+
+| Método | Ruta | Responsabilidad |
+|---|---|---|
+| `GET` | `/tickets` | Listar y paginar los tickets visibles para la identidad |
+| `GET` | `/tickets/{codigo}` | Mostrar un ticket visible por su código público o responder 404 |
+
+### Decisiones del corte 2
+
+* Las rutas admiten únicamente los roles Administrador, Técnico y Cliente
+  mediante `RoleMiddleware`.
+* `Ticket` agrega a cada consulta la condición de visibilidad correspondiente:
+  todos los tickets para el administrador, propios para el cliente y asignados
+  para el técnico.
+* Un ticket inexistente y uno fuera del ámbito autorizado producen la misma
+  respuesta 404, sin revelar la existencia de recursos ajenos.
+* El detalle utiliza el código público en la URL; el identificador numérico se
+  conserva exclusivamente como clave interna.
+* El listado se ordena por fecha de creación e identificador descendentes y
+  utiliza páginas de 10 registros.
+* Una página inválida se normaliza a la primera; una página superior a la
+  última se ajusta a la última disponible.
+* Las categorías, prioridades y estados inactivos continúan visibles en
+  tickets existentes y se identifican como tales en las vistas.
+* La lectura afecta una única entidad principal y no requiere todavía un
+  servicio; el controlador coordina el caso y el modelo encapsula SQL y
+  autorización por recurso.
+
+### Verificación del corte 2
+
+* Consultas preparadas con restricciones de propiedad o asignación aplicadas
+  tanto al conteo/listado como al detalle.
+* Listado y detalle con contenido dinámico escapado.
+* Respuesta 404 para identificadores inválidos, inexistentes o no visibles.
+* Rutas protegidas contra invitados y roles ajenos al flujo de tickets.
+* Pruebas aisladas para modelo, controlador y pipeline de rutas.
+* Suite completa con 151 pruebas y 517 aserciones.
+* Conexión real de solo lectura verificada para listado y detalle por código
+  público.
+
+### Rutas incorporadas en el corte 3
+
+| Método | Ruta | Responsabilidad |
+|---|---|---|
+| `GET` | `/tickets/crear` | Mostrar al cliente el formulario con catálogos activos |
+| `POST` | `/tickets` | Validar, crear y auditar un ticket propio |
+
+### Decisiones del corte 3
+
+* El alta es exclusiva del rol Cliente mediante `AuthMiddleware` y
+  `RoleMiddleware`; el cliente autenticado se toma de la sesión y no de un
+  campo manipulable del formulario.
+* El asunto es obligatorio y admite hasta 180 caracteres. La descripción es
+  obligatoria y se limita a 5000 caracteres para esta primera versión.
+* El formulario lista únicamente categorías y prioridades activas. El servicio
+  vuelve a comprobar su disponibilidad antes de insertar.
+* El estado inicial se resuelve exclusivamente mediante el código estable
+  `ABIERTO` y también debe permanecer activo.
+* `TicketService` comparte una conexión entre los modelos y mantiene creación
+  y auditoría dentro de una única transacción.
+* El código público sigue el formato `HD-YYYYMMDD-XXXXXX`; el sufijo contiene
+  seis caracteres hexadecimales generados con `random_bytes`.
+* Una colisión de `uq_tickets_codigo` se reintenta hasta cinco veces. Otros
+  errores de persistencia no se ocultan ni se convierten en reintentos.
+* La creación registra un evento `CREACION` en `ticket_historial` antes de
+  confirmar la transacción.
+* Tras el alta se aplica Post/Redirect/Get hacia el detalle identificado por el
+  código público.
+
+### Verificación del corte 3
+
+* Validación del lado servidor para estructuras manipuladas, identificadores,
+  campos obligatorios y límites de longitud.
+* Restricción del formulario y del `POST` al rol Cliente, con CSRF obligatorio.
+* Consultas preparadas para catálogos, ticket e historial.
+* Confirmación conjunta del ticket y su evento inicial.
+* Rollback cuando un catálogo o el estado inicial no están disponibles.
+* Reintento controlado ante una colisión de la restricción única.
+* Renderizado escapado y conservación de valores después de errores 422.
+* Suite completa con 168 pruebas y 581 aserciones.
+* Formulario real renderizado con HTTP 200 y catálogos obtenidos desde MariaDB
+  en modo de solo lectura, sin insertar datos de prueba.
+
+### Rutas incorporadas en el corte 4
+
+| Método | Ruta | Responsabilidad |
+|---|---|---|
+| `GET` | `/tickets/{codigo}/editar` | Mostrar el contenido original editable |
+| `POST` | `/tickets/{codigo}/actualizar` | Revalidar, actualizar y auditar cambios |
+
+### Decisiones del corte 4
+
+* `RoleMiddleware` admite Administrador y Cliente; el técnico no participa en
+  la edición del contenido original.
+* El administrador puede editar cualquier ticket. El cliente sólo puede editar
+  uno propio mientras permanezca `ABIERTO` y sin técnico asignado.
+* Los campos de este corte son categoría, asunto y descripción. Prioridad,
+  estado y asignación conservan sus acciones específicas en cortes posteriores.
+* El `POST` vuelve a cargar y bloquear el ticket mediante `FOR UPDATE` antes de
+  evaluar estado, asignación y propiedad, evitando decisiones sobre datos
+  concurrentemente obsoletos.
+* Sólo puede elegirse una categoría activa. Una categoría histórica inactiva
+  puede conservarse al editar otros campos, pero no seleccionarse como cambio.
+* Cada campo efectivamente modificado registra un evento `EDICION` con valor
+  anterior y nuevo. Si no existen cambios, no se actualiza ni audita.
+* Actualización y eventos se confirman dentro de una única transacción.
+
+### Verificación del corte 4
+
+* Formulario y mutación restringidos por rol, recurso, estado y asignación.
+* CSRF obligatorio en la actualización.
+* Validación de identificadores, campos obligatorios y límites de longitud.
+* Consultas preparadas para bloqueo, actualización y auditoría.
+* Pruebas de cliente editable, cliente asignado, administrador y técnico.
+* Auditoría limitada a los campos con cambios efectivos.
+* Suite completa con 178 pruebas y 608 aserciones.
+* Formulario administrativo renderizado contra MariaDB con HTTP 200 usando un
+  ticket existente, sin modificar datos de desarrollo.
+
+### Rutas incorporadas en el corte 5
+
+| Método | Ruta | Responsabilidad |
+|---|---|---|
+| `GET` | `/tickets/{codigo}/asignar` | Mostrar técnico actual y candidatos activos |
+| `POST` | `/tickets/{codigo}/asignacion` | Asignar o reasignar y auditar |
+
+### Decisiones del corte 5
+
+* La asignación es exclusiva del administrador mediante `RoleMiddleware` y se
+  vuelve a comprobar dentro de `TicketService`.
+* Sólo pueden seleccionarse usuarios activos cuyo rol actual sea `Técnico`.
+* La mutación bloquea el ticket con `FOR UPDATE`, actualiza `tecnico_id` y
+  reemplaza `fecha_asignacion_at` con el momento de la asignación vigente.
+* La primera asignación registra `ASIGNACION`; una reasignación registra
+  `CAMBIO_TECNICO`, conservando los nombres anterior y nuevo.
+* Seleccionar al técnico ya asignado no escribe ni genera historial.
+* La asignación no cambia automáticamente el estado; las transiciones y sus
+  efectos pertenecen al corte 6.
+* Ticket y evento se confirman dentro de una misma transacción.
+
+### Verificación del corte 5
+
+* Listado y búsqueda parametrizada de técnicos activos.
+* Acceso exclusivo del administrador y CSRF obligatorio en la mutación.
+* Rechazo de clientes y de candidatos inactivos o con otro rol.
+* Diferenciación entre primera asignación y reasignación en auditoría.
+* Actualización de fecha sin modificación implícita del estado.
+* Suite completa con 189 pruebas y 639 aserciones.
+* Formulario real de asignación renderizado contra MariaDB con HTTP 200, sin
+  modificar datos de desarrollo.
+
+### Rutas incorporadas en el corte 6
+
+| Método | Ruta | Responsabilidad |
+|---|---|---|
+| `GET` | `/tickets/{codigo}/gestionar` | Mostrar estados y prioridades disponibles |
+| `POST` | `/tickets/{codigo}/flujo` | Validar, actualizar efectos y auditar |
+
+### Decisiones del corte 6
+
+* El administrador gestiona cualquier ticket y el técnico únicamente uno
+  asignado a su usuario. `RoleMiddleware` realiza el control grueso y el
+  servicio revalida el recurso.
+* Sólo pueden seleccionarse estados o prioridades activos; el valor histórico
+  inactivo puede conservarse si no se cambia.
+* Matriz inicial: `ABIERTO → ASIGNADO|CANCELADO`, `ASIGNADO → EN_PROCESO|CANCELADO`,
+  `EN_PROCESO → PENDIENTE_CLIENTE|RESUELTO|CANCELADO`,
+  `PENDIENTE_CLIENTE → EN_PROCESO|RESUELTO|CANCELADO`,
+  `RESUELTO → CERRADO|EN_PROCESO`, `CERRADO → EN_PROCESO` y
+  `CANCELADO → ABIERTO`.
+* `ASIGNADO`, `EN_PROCESO`, `PENDIENTE_CLIENTE` y `RESUELTO` requieren técnico.
+* Entrar en `RESUELTO` completa `fecha_resolucion_at`; entrar en `CERRADO`
+  conserva la resolución y completa `fecha_cierre_at`; reabrir limpia ambas.
+* Estado y prioridad generan respectivamente `CAMBIO_ESTADO` y
+  `CAMBIO_PRIORIDAD`, con valores anterior y nuevo.
+* No se escriben filas ni eventos cuando ambos valores permanecen iguales.
+* La fila se bloquea con `FOR UPDATE` y todos los efectos se confirman en una
+  transacción.
+
+### Verificación del corte 6
+
+* Autorización para administrador y técnico asignado; rechazo del cliente.
+* CSRF obligatorio y validación de identificadores manipulados.
+* Pruebas de transición válida e inválida, efectos temporales y auditoría.
+* Cambio de prioridad independiente del estado.
+* Suite completa con 198 pruebas y 666 aserciones.
+* La verificación manual contra MariaDB se completó al cerrar la fase: el
+  formulario de flujo respondió HTTP 200 para Administrador y Técnico asignado.
+
+### Decisiones del corte 7
+
+* Estado, prioridad, técnico y texto pueden combinarse en una misma consulta.
+* Los filtros se agregan después de la condición de visibilidad del rol, tanto
+  en el conteo como en el listado paginado.
+* La búsqueda por código o asunto utiliza `LOCATE` con parámetros separados;
+  `%` y `_` se interpretan como texto literal y no como comodines SQL.
+* El formulario admite estados y prioridades históricos inactivos para poder
+  localizar tickets existentes, pero sólo lista técnicos actualmente activos.
+* Los enlaces anterior y siguiente conservan todos los filtros mediante query
+  string codificada.
+
+### Verificación del corte 7
+
+* Pruebas del modelo para búsqueda literal y combinación de filtros.
+* Pruebas del controlador para normalización, selección y paginación persistente.
+* Suite completa con 200 pruebas y 678 aserciones.
+
+### Decisiones del corte 8
+
+* El dashboard ofrece accesos con lenguaje contextual: gestión completa para
+  Administrador, asignados para Técnico y tickets propios/alta para Cliente.
+* El listado incorpora acciones directas por ticket para editar, asignar o
+  gestionar el flujo únicamente cuando corresponden a la identidad mostrada.
+* La visibilidad de enlaces mejora la navegación, pero no reemplaza la
+  autorización de `RoleMiddleware` ni la validación por recurso del servicio.
+* Los formularios conservan el retorno al detalle y el detalle vuelve al
+  listado, completando un recorrido navegable sin URLs manuales.
+
+### Verificación del corte 8
+
+* Navegación automatizada para Administrador, Técnico y Cliente.
+* Recorrido real de sólo lectura contra MariaDB por listado, detalle, creación,
+  asignación y gestión de flujo.
+* Las rutas permitidas respondieron HTTP 200; asignación para Técnico y gestión
+  para Cliente respondieron HTTP 403 mediante el pipeline real.
+* No se ejecutaron mutaciones ni se modificaron datos durante la prueba manual.
+* Suite completa con 202 pruebas y 695 aserciones.
 
 ### Resultado esperado
 

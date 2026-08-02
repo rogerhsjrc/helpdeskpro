@@ -9,8 +9,9 @@ testing automatizado y documentación técnica sin depender de un framework PHP.
 
 ## Estado
 
-El baseline reproducible, el núcleo HTTP y la autenticación están completos.
-El próximo hito es la gestión de categorías, prioridades y estados de ticket.
+El baseline reproducible, el núcleo HTTP, la autenticación, los catálogos y el
+flujo principal de tickets están completos. El próximo hito es incorporar
+comentarios públicos y notas internas.
 
 Actualmente el proyecto incluye:
 
@@ -23,6 +24,11 @@ Actualmente el proyecto incluye:
 * Protección CSRF en formularios de autenticación.
 * Middleware para rutas públicas y privadas.
 * Dashboard provisional protegido.
+* Administración de categorías, prioridades y estados de ticket.
+* Creación, lectura y edición autorizada de tickets.
+* Asignación de técnicos y cambios auditados de estado y prioridad.
+* Filtros combinables, búsqueda y paginación de tickets.
+* Navegación contextual para Administrador, Técnico y Cliente.
 * Esquema relacional reproducible.
 * Seeds idempotentes y datos demo optativos.
 * Suite PHPUnit.

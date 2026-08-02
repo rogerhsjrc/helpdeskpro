@@ -9,6 +9,20 @@ use PDO;
 
 final class EstadoTicket
 {
+    public const string CODIGO_ABIERTO = 'ABIERTO';
+
+    public const string CODIGO_ASIGNADO = 'ASIGNADO';
+
+    public const string CODIGO_EN_PROCESO = 'EN_PROCESO';
+
+    public const string CODIGO_PENDIENTE_CLIENTE = 'PENDIENTE_CLIENTE';
+
+    public const string CODIGO_RESUELTO = 'RESUELTO';
+
+    public const string CODIGO_CERRADO = 'CERRADO';
+
+    public const string CODIGO_CANCELADO = 'CANCELADO';
+
     private readonly PDO $databaseConnection;
 
     /**
@@ -24,6 +38,7 @@ final class EstadoTicket
      *
      * @return list<array{
      *     id: int,
+     *     codigo: string,
      *     nombre: string,
      *     descripcion: string|null,
      *     orden: int,
@@ -34,7 +49,7 @@ final class EstadoTicket
     public function all(): array
     {
         $listTicketStatusesStatement = $this->databaseConnection->prepare(
-            'SELECT id, nombre, descripcion, orden, es_final, activo
+            'SELECT id, codigo, nombre, descripcion, orden, es_final, activo
              FROM estados_ticket
              ORDER BY orden ASC'
         );
@@ -50,10 +65,33 @@ final class EstadoTicket
     }
 
     /**
+     * Obtiene los estados activos ordenados para nuevas transiciones.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function active(): array
+    {
+        $statement = $this->databaseConnection->prepare(
+            'SELECT id, codigo, nombre, descripcion, orden, es_final, activo
+             FROM estados_ticket
+             WHERE activo = 1
+             ORDER BY orden ASC'
+        );
+        $statement->execute();
+        $rows = $statement->fetchAll();
+
+        return array_map(
+            fn (array $row): array => $this->mapTicketStatus($row),
+            $rows
+        );
+    }
+
+    /**
      * Busca un estado por identificador, aunque se encuentre inactivo.
      *
      * @return array{
      *     id: int,
+     *     codigo: string,
      *     nombre: string,
      *     descripcion: string|null,
      *     orden: int,
@@ -64,13 +102,44 @@ final class EstadoTicket
     public function findById(int $ticketStatusId): ?array
     {
         $findTicketStatusStatement = $this->databaseConnection->prepare(
-            'SELECT id, nombre, descripcion, orden, es_final, activo
+            'SELECT id, codigo, nombre, descripcion, orden, es_final, activo
              FROM estados_ticket
              WHERE id = :estado_id
              LIMIT 1'
         );
         $findTicketStatusStatement->execute([
             'estado_id' => $ticketStatusId,
+        ]);
+        $ticketStatusRow = $findTicketStatusStatement->fetch();
+
+        return is_array($ticketStatusRow)
+            ? $this->mapTicketStatus($ticketStatusRow)
+            : null;
+    }
+
+    /**
+     * Busca un estado mediante su código estable, aunque se encuentre inactivo.
+     *
+     * @return array{
+     *     id: int,
+     *     codigo: string,
+     *     nombre: string,
+     *     descripcion: string|null,
+     *     orden: int,
+     *     es_final: bool,
+     *     activo: bool
+     * }|null
+     */
+    public function findByCode(string $ticketStatusCode): ?array
+    {
+        $findTicketStatusStatement = $this->databaseConnection->prepare(
+            'SELECT id, codigo, nombre, descripcion, orden, es_final, activo
+             FROM estados_ticket
+             WHERE codigo = :codigo
+             LIMIT 1'
+        );
+        $findTicketStatusStatement->execute([
+            'codigo' => $ticketStatusCode,
         ]);
         $ticketStatusRow = $findTicketStatusStatement->fetch();
 
@@ -94,6 +163,14 @@ final class EstadoTicket
     }
 
     /**
+     * Comprueba si el código interno ya pertenece a otro estado.
+     */
+    public function codeExists(string $ticketStatusCode): bool
+    {
+        return $this->valueExists('codigo', $ticketStatusCode, null);
+    }
+
+    /**
      * Comprueba si el orden ya pertenece a otro estado.
      */
     public function orderExists(
@@ -111,16 +188,23 @@ final class EstadoTicket
      * Registra un estado activo con sus valores previamente validados.
      */
     public function create(
+        string $ticketStatusCode,
         string $ticketStatusName,
         ?string $ticketStatusDescription,
         int $ticketStatusOrder,
         bool $ticketStatusFinal
     ): void {
         $createTicketStatusStatement = $this->databaseConnection->prepare(
-            'INSERT INTO estados_ticket (nombre, descripcion, orden, es_final)
-             VALUES (:nombre, :descripcion, :orden, :es_final)'
+            'INSERT INTO estados_ticket (
+                codigo,
+                nombre,
+                descripcion,
+                orden,
+                es_final
+             ) VALUES (:codigo, :nombre, :descripcion, :orden, :es_final)'
         );
         $createTicketStatusStatement->execute([
+            'codigo' => $ticketStatusCode,
             'nombre' => $ticketStatusName,
             'descripcion' => $ticketStatusDescription,
             'orden' => $ticketStatusOrder,
@@ -207,6 +291,7 @@ final class EstadoTicket
      *
      * @return array{
      *     id: int,
+     *     codigo: string,
      *     nombre: string,
      *     descripcion: string|null,
      *     orden: int,
@@ -218,6 +303,7 @@ final class EstadoTicket
     {
         return [
             'id' => (int) $ticketStatusRow['id'],
+            'codigo' => (string) $ticketStatusRow['codigo'],
             'nombre' => (string) $ticketStatusRow['nombre'],
             'descripcion' => $ticketStatusRow['descripcion'] === null
                 ? null

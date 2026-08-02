@@ -12,6 +12,40 @@ use PHPUnit\Framework\TestCase;
 final class PrioridadTest extends TestCase
 {
     /**
+     * Lista únicamente prioridades activas para nuevas operaciones.
+     */
+    public function testListsOnlyActivePriorities(): void
+    {
+        $databaseConnection = $this->createMock(PDO::class);
+        $listPrioritiesStatement = $this->createStub(PDOStatement::class);
+        $databaseConnection->expects(self::once())
+            ->method('prepare')
+            ->with(self::callback(
+                static fn (string $query): bool => str_contains(
+                    $query,
+                    'WHERE activo = 1'
+                )
+            ))
+            ->willReturn($listPrioritiesStatement);
+        $listPrioritiesStatement->method('fetchAll')->willReturn([
+            [
+                'id' => '3',
+                'nombre' => 'Alta',
+                'nivel' => '3',
+                'descripcion' => null,
+                'color' => '#ff0000',
+                'activo' => '1',
+            ],
+        ]);
+        $priorityModel = new Prioridad($databaseConnection);
+
+        $priorities = $priorityModel->active();
+
+        self::assertCount(1, $priorities);
+        self::assertSame(3, $priorities[0]['nivel']);
+    }
+
+    /**
      * Lista las prioridades por nivel y convierte los tipos devueltos por PDO.
      */
     public function testListsPrioritiesOrderedByLevel(): void

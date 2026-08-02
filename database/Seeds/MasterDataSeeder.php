@@ -148,42 +148,49 @@ final class MasterDataSeeder
     {
         $ticketStatusDefinitions = [
             [
+                'codigo' => 'ABIERTO',
                 'nombre' => 'Abierto',
                 'descripcion' => 'El ticket fue creado y todavía no fue asignado.',
                 'orden' => 1,
                 'es_final' => 0,
             ],
             [
+                'codigo' => 'ASIGNADO',
                 'nombre' => 'Asignado',
                 'descripcion' => 'El ticket fue asignado a un técnico.',
                 'orden' => 2,
                 'es_final' => 0,
             ],
             [
+                'codigo' => 'EN_PROCESO',
                 'nombre' => 'En proceso',
                 'descripcion' => 'El técnico se encuentra trabajando en la incidencia.',
                 'orden' => 3,
                 'es_final' => 0,
             ],
             [
+                'codigo' => 'PENDIENTE_CLIENTE',
                 'nombre' => 'Pendiente del cliente',
                 'descripcion' => 'Se requiere información o una acción del cliente.',
                 'orden' => 4,
                 'es_final' => 0,
             ],
             [
+                'codigo' => 'RESUELTO',
                 'nombre' => 'Resuelto',
                 'descripcion' => 'El técnico indicó que la incidencia fue solucionada.',
                 'orden' => 5,
                 'es_final' => 0,
             ],
             [
+                'codigo' => 'CERRADO',
                 'nombre' => 'Cerrado',
                 'descripcion' => 'El ticket fue finalizado y no requiere más acciones.',
                 'orden' => 6,
                 'es_final' => 1,
             ],
             [
+                'codigo' => 'CANCELADO',
                 'nombre' => 'Cancelado',
                 'descripcion' => 'El ticket fue cancelado sin completar su resolución.',
                 'orden' => 7,
@@ -194,7 +201,7 @@ final class MasterDataSeeder
         $this->insertMissingRecords(
             $databaseConnection,
             'estados_ticket',
-            'nombre',
+            'codigo',
             $ticketStatusDefinitions
         );
     }

@@ -48,10 +48,9 @@ final class DemoSeeder
             'prioridades',
             'Alta'
         );
-        $ticketStatusId = $this->findMasterRecordId(
+        $ticketStatusId = $this->findTicketStatusIdByCode(
             $databaseConnection,
-            'estados_ticket',
-            'Asignado'
+            'ASIGNADO'
         );
         $insertTicketStatement = $databaseConnection->prepare(
             'INSERT INTO tickets (
@@ -177,7 +176,6 @@ final class DemoSeeder
         $allowedTableNames = [
             'categorias',
             'prioridades',
-            'estados_ticket',
         ];
 
         if (!in_array($tableName, $allowedTableNames, true)) {
@@ -200,6 +198,35 @@ final class DemoSeeder
         }
 
         return (int) $masterRecordId;
+    }
+
+    /**
+     * Obtiene un estado del sistema mediante su código estable.
+     *
+     * @throws RuntimeException Si el código solicitado no existe.
+     */
+    private function findTicketStatusIdByCode(
+        PDO $databaseConnection,
+        string $ticketStatusCode
+    ): int {
+        $findTicketStatusStatement = $databaseConnection->prepare(
+            'SELECT id FROM estados_ticket WHERE codigo = :codigo LIMIT 1'
+        );
+        $findTicketStatusStatement->execute([
+            'codigo' => $ticketStatusCode,
+        ]);
+        $ticketStatusId = $findTicketStatusStatement->fetchColumn();
+
+        if ($ticketStatusId === false) {
+            throw new RuntimeException(
+                sprintf(
+                    'No existe el estado con código %s en la base de datos.',
+                    $ticketStatusCode
+                )
+            );
+        }
+
+        return (int) $ticketStatusId;
     }
 
     /**

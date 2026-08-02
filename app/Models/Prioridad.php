@@ -48,6 +48,35 @@ final class Prioridad
     }
 
     /**
+     * Obtiene las prioridades activas ordenadas por su nivel de impacto.
+     *
+     * @return list<array{
+     *     id: int,
+     *     nombre: string,
+     *     nivel: int,
+     *     descripcion: string|null,
+     *     color: string|null,
+     *     activo: bool
+     * }>
+     */
+    public function active(): array
+    {
+        $listActivePrioritiesStatement = $this->databaseConnection->prepare(
+            'SELECT id, nombre, nivel, descripcion, color, activo
+             FROM prioridades
+             WHERE activo = 1
+             ORDER BY nivel ASC'
+        );
+        $listActivePrioritiesStatement->execute();
+        $priorityRows = $listActivePrioritiesStatement->fetchAll();
+
+        return array_map(
+            fn (array $priorityRow): array => $this->mapPriority($priorityRow),
+            $priorityRows
+        );
+    }
+
+    /**
      * Busca una prioridad por identificador sin excluir registros inactivos.
      *
      * @return array{

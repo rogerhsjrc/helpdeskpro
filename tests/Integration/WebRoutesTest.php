@@ -85,6 +85,161 @@ final class WebRoutesTest extends TestCase
     }
 
     /**
+     * Protege el listado de tickets antes de intentar consultar la base de datos.
+     */
+    public function testTicketListRedirectsGuestToLogin(): void
+    {
+        $response = $this->loadRouter()->dispatch(
+            new Request('GET', '/tickets')
+        );
+
+        self::assertSame(302, $response->statusCode());
+        self::assertSame('/login', $response->headers()['Location']);
+    }
+
+    /**
+     * Rechaza roles ajenos al flujo antes de ejecutar el controlador de tickets.
+     */
+    public function testTicketListRejectsUnknownAuthenticatedRole(): void
+    {
+        Session::setUser($this->authenticatedUser('Auditor', 9));
+
+        $response = $this->loadRouter()->dispatch(
+            new Request('GET', '/tickets')
+        );
+
+        self::assertSame(403, $response->statusCode());
+    }
+
+    /**
+     * Redirige al invitado antes de mostrar el formulario de nuevo ticket.
+     */
+    public function testTicketCreationFormRedirectsGuestToLogin(): void
+    {
+        $response = $this->loadRouter()->dispatch(
+            new Request('GET', '/tickets/crear')
+        );
+
+        self::assertSame(302, $response->statusCode());
+        self::assertSame('/login', $response->headers()['Location']);
+    }
+
+    /**
+     * Impide que un técnico alcance el formulario exclusivo del cliente.
+     */
+    public function testTicketCreationFormRejectsTechnician(): void
+    {
+        Session::setUser($this->authenticatedUser('Técnico', 2));
+
+        $response = $this->loadRouter()->dispatch(
+            new Request('GET', '/tickets/crear')
+        );
+
+        self::assertSame(403, $response->statusCode());
+    }
+
+    /**
+     * Exige CSRF antes de procesar el alta de un ticket del cliente.
+     */
+    public function testTicketCreationRequiresCsrfToken(): void
+    {
+        Session::setUser($this->authenticatedUser('Cliente', 3));
+
+        $response = $this->loadRouter()->dispatch(
+            new Request('POST', '/tickets')
+        );
+
+        self::assertSame(403, $response->statusCode());
+    }
+
+    /**
+     * Impide que el técnico alcance la edición del contenido original.
+     */
+    public function testTicketOriginalEditRejectsTechnician(): void
+    {
+        Session::setUser($this->authenticatedUser('Técnico', 2));
+
+        $response = $this->loadRouter()->dispatch(
+            new Request('GET', '/tickets/HD-20260801-ABC123/editar')
+        );
+
+        self::assertSame(403, $response->statusCode());
+    }
+
+    /**
+     * Exige CSRF para actualizar el contenido original del cliente.
+     */
+    public function testTicketOriginalUpdateRequiresCsrfToken(): void
+    {
+        Session::setUser($this->authenticatedUser('Cliente', 3));
+
+        $response = $this->loadRouter()->dispatch(
+            new Request(
+                'POST',
+                '/tickets/HD-20260801-ABC123/actualizar'
+            )
+        );
+
+        self::assertSame(403, $response->statusCode());
+    }
+
+    /**
+     * Impide que el cliente alcance la asignación administrativa.
+     */
+    public function testTicketAssignmentRejectsClient(): void
+    {
+        Session::setUser($this->authenticatedUser('Cliente', 3));
+
+        $response = $this->loadRouter()->dispatch(
+            new Request('GET', '/tickets/HD-20260801-ABC123/asignar')
+        );
+
+        self::assertSame(403, $response->statusCode());
+    }
+
+    /**
+     * Exige CSRF antes de procesar una asignación administrativa.
+     */
+    public function testTicketAssignmentRequiresCsrfToken(): void
+    {
+        Session::setUser($this->authenticatedUser());
+
+        $response = $this->loadRouter()->dispatch(
+            new Request('POST', '/tickets/HD-20260801-ABC123/asignacion')
+        );
+
+        self::assertSame(403, $response->statusCode());
+    }
+
+    /**
+     * Impide que el cliente alcance la gestión de estado y prioridad.
+     */
+    public function testTicketWorkflowRejectsClient(): void
+    {
+        Session::setUser($this->authenticatedUser('Cliente', 3));
+
+        $response = $this->loadRouter()->dispatch(
+            new Request('GET', '/tickets/HD-20260801-ABC123/gestionar')
+        );
+
+        self::assertSame(403, $response->statusCode());
+    }
+
+    /**
+     * Exige CSRF al técnico antes de procesar cambios del flujo.
+     */
+    public function testTicketWorkflowRequiresCsrfToken(): void
+    {
+        Session::setUser($this->authenticatedUser('Técnico', 2));
+
+        $response = $this->loadRouter()->dispatch(
+            new Request('POST', '/tickets/HD-20260801-ABC123/flujo')
+        );
+
+        self::assertSame(403, $response->statusCode());
+    }
+
+    /**
      * Muestra el dashboard provisional al usuario autenticado.
      */
     public function testAuthenticatedUserCanViewDashboard(): void
@@ -112,6 +267,7 @@ final class WebRoutesTest extends TestCase
             'href="/admin/configuraciones"',
             $response->content()
         );
+        self::assertStringContainsString('Gestionar tickets', $response->content());
     }
 
     /**
@@ -126,6 +282,31 @@ final class WebRoutesTest extends TestCase
         );
 
         self::assertSame(200, $response->statusCode());
+        self::assertStringNotContainsString(
+            'href="/admin/configuraciones"',
+            $response->content()
+        );
+        self::assertStringContainsString('Tickets asignados', $response->content());
+        self::assertStringNotContainsString('/tickets/crear', $response->content());
+    }
+
+    /**
+     * Ofrece al cliente accesos directos a sus tickets y al formulario de alta.
+     */
+    public function testClientDashboardShowsOwnTicketNavigation(): void
+    {
+        Session::setUser($this->authenticatedUser('Cliente', 7));
+
+        $response = $this->loadRouter()->dispatch(
+            new Request('GET', '/dashboard')
+        );
+
+        self::assertSame(200, $response->statusCode());
+        self::assertStringContainsString('Mis tickets', $response->content());
+        self::assertStringContainsString(
+            'href="/tickets/crear"',
+            $response->content()
+        );
         self::assertStringNotContainsString(
             'href="/admin/configuraciones"',
             $response->content()
